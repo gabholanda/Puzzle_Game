@@ -351,6 +351,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2125333671}
+  - component: {fileID: 2125333673}
   - component: {fileID: 2125333672}
   m_Layer: 0
   m_Name: PuzzleGame
@@ -383,14 +384,29 @@ MonoBehaviour:
   m_GameObject: {fileID: 2125333670}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9282534e392192f4198863ab2e2783a7, type: 3}
+  m_Script: {fileID: 11500000, guid: 6fd613dbcc0d44c4caa7329ad85d7897, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2125333673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125333670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cce4057169869c48952520761efe58f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  layout:
+    cellSize: 200
+    tileSpacing: 6
+    boardCenterY: -60
+    moveAnimDuration: 0.18
   maxMoves: 200
-  cellSize: 280
-  tileSpacing: 8
-  moveAnimDuration: 0.18
   startSceneName: StartScene
+  hud: {fileID: 2125333672}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

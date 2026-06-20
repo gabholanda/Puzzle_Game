@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -7,47 +8,67 @@ using UnityEngine.UI;
 public class PuzzleTile : MonoBehaviour,
     IPointerDownHandler, IDragHandler, IPointerUpHandler
 {
-    public static readonly Color IdleColor = new Color(0.95f, 0.96f, 0.98f);
+    public static readonly Color IdleColor    = new Color(0.95f, 0.96f, 0.98f);
     public static readonly Color MovableColor = new Color(0.55f, 0.85f, 0.55f);
 
     public int Number { get; private set; }
     public int Row { get; private set; }
     public int Col { get; private set; }
 
-    private RectTransform rect;
-    private PuzzleGame game;
-    private Image image;
+    RectTransform rect;
+    Image image;
 
-    private bool dragging;
-    private Vector2 startAnchored;
-    private Vector2 emptyAnchored;
-    private Vector2 axis;
-    private float maxDist;
-    private Vector2 pressLocal;
+    // Pushed once at Setup.
+    RectTransform boardRect;
+    float moveAnimDuration;
+    Func<PuzzleTile, bool> onCommitRequest;
 
-    private Coroutine moveRoutine;
+    // Pushed whenever grid state changes.
+    bool interactive;
+    bool canMove;
+    Vector2 startAnchored;
+    Vector2 axis;
+    float maxDist;
 
-    public void Init(int number, PuzzleGame game)
+    bool dragging;
+    Vector2 pressLocal;
+    Coroutine moveRoutine;
+
+    public void Setup(int number, RectTransform boardRect, float moveAnimDuration,
+                      Func<PuzzleTile, bool> onCommitRequest)
     {
         Number = number;
-        this.game = game;
+        this.boardRect = boardRect;
+        this.moveAnimDuration = moveAnimDuration;
+        this.onCommitRequest = onCommitRequest;
         rect = (RectTransform)transform;
         image = GetComponent<Image>();
     }
 
-    public void SetMovableHighlight(bool movable)
-    {
-        if (image != null)
-            image.color = movable ? MovableColor : IdleColor;
-    }
-
-    public void PlaceAt(int row, int col, bool animate)
+    public void PlaceAt(int row, int col, Vector2 anchored, bool animate)
     {
         Row = row;
         Col = col;
-        Vector2 target = game.GridToAnchored(row, col);
-        if (animate) AnimateTo(target);
-        else SnapTo(target);
+        startAnchored = anchored;
+        if (animate) AnimateTo(anchored);
+        else SnapTo(anchored);
+    }
+
+    public void SetMovableHighlight(bool movable)
+    {
+        if (image != null) image.color = movable ? MovableColor : IdleColor;
+    }
+
+    public void SetDragConstraints(bool canMove, Vector2 axis, float maxDist)
+    {
+        this.canMove = canMove;
+        this.axis = axis;
+        this.maxDist = maxDist;
+    }
+
+    public void SetInteractive(bool interactive)
+    {
+        this.interactive = interactive;
     }
 
     void SnapTo(Vector2 pos)
@@ -66,7 +87,7 @@ public class PuzzleTile : MonoBehaviour,
     {
         Vector2 start = rect.anchoredPosition;
         float t = 0f;
-        float duration = Mathf.Max(0.0001f, game.MoveAnimDuration);
+        float duration = Mathf.Max(0.0001f, moveAnimDuration);
         while (t < duration)
         {
             t += Time.deltaTime;
@@ -81,21 +102,13 @@ public class PuzzleTile : MonoBehaviour,
     public void OnPointerDown(PointerEventData data)
     {
         dragging = false;
-        if (!game.CanInteract) return;
-        if (!game.IsAdjacentToEmpty(this)) return;
+        if (!interactive || !canMove) return;
 
         if (moveRoutine != null) { StopCoroutine(moveRoutine); moveRoutine = null; }
-        rect.anchoredPosition = game.GridToAnchored(Row, Col);
-
-        startAnchored = rect.anchoredPosition;
-        emptyAnchored = game.GridToAnchored(game.EmptyGrid.x, game.EmptyGrid.y);
-
-        Vector2 delta = emptyAnchored - startAnchored;
-        maxDist = delta.magnitude;
-        axis = maxDist > 0.001f ? delta / maxDist : Vector2.zero;
+        rect.anchoredPosition = startAnchored;
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            game.BoardRect, data.position, data.pressEventCamera, out pressLocal);
+            boardRect, data.position, data.pressEventCamera, out pressLocal);
 
         dragging = true;
         transform.SetAsLastSibling();
@@ -107,7 +120,7 @@ public class PuzzleTile : MonoBehaviour,
 
         Vector2 currentLocal;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            game.BoardRect, data.position, data.pressEventCamera, out currentLocal);
+            boardRect, data.position, data.pressEventCamera, out currentLocal);
 
         Vector2 dragDelta = currentLocal - pressLocal;
         float projected = Vector2.Dot(dragDelta, axis);
@@ -123,7 +136,9 @@ public class PuzzleTile : MonoBehaviour,
         float traveled = Vector2.Distance(rect.anchoredPosition, startAnchored);
         if (maxDist > 0f && traveled >= maxDist * 0.5f)
         {
-            game.CommitMove(this);
+            Vector2 fallback = startAnchored;
+            bool accepted = onCommitRequest != null && onCommitRequest(this);
+            if (!accepted) AnimateTo(fallback);
         }
         else
         {
